@@ -137,6 +137,7 @@ public class ClassesNGTest {
         return categories.stream()
                 .flatMap(category -> model.listClasses().toList().stream()
                         .filter(instrument -> instrument.getNameSpace() != null
+                                && instrument.getProperty(OWL2.deprecated) == null
                                 && NAMESPACE.equals(instrument.getNameSpace())
                                 && instrument.hasSuperClass(category)))
                 .map(x -> new OntClass[]{x})
@@ -172,16 +173,16 @@ public class ClassesNGTest {
     private long getCount(List<OntClass> list, final Set<OntClass> functions) {
 
         return list.stream()
-                .filter(x -> x.isRestriction())
+                .filter(OntClass::isRestriction)
                 .map(OntClass::asRestriction)
-                .filter(restriction
-                        -> restriction.isAllValuesFromRestriction()
-                        || restriction.isSomeValuesFromRestriction())
-                .map(restriction -> restriction.isAllValuesFromRestriction()
-                                ? restriction.asAllValuesFromRestriction().getAllValuesFrom()
-                                : restriction.asSomeValuesFromRestriction().getSomeValuesFrom())
+                .filter(r
+                        -> r.isAllValuesFromRestriction()
+                        || r.isSomeValuesFromRestriction())
+                .map(r -> r.isAllValuesFromRestriction()
+                                ? r.asAllValuesFromRestriction().getAllValuesFrom()
+                                : r.asSomeValuesFromRestriction().getSomeValuesFrom())
                 .filter(r -> !r.isAnon())
-                .map(resouce -> model.getOntClass(resouce.getURI()))
+                .map(r -> model.getOntClass(r.getURI()))
                 .filter(c -> functions.contains(c))
                 .count();
     }
