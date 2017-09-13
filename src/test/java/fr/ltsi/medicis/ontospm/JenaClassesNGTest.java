@@ -25,9 +25,12 @@ import org.testng.annotations.Test;
 
 /**
  *
+ * Use OWLAPIClassesNGTest instead.
+ *
  * @author javier
  */
-public class ClassesNGTest {
+@Deprecated
+public class JenaClassesNGTest {
 
     private static final String NAMESPACE = "http://medicis.univ-rennes1.fr/ontologies/ontospm/OntoSPM.owl#";
     private static final Path PATH = Paths.get("/home/javier/workspace/ontospm-ca/OntoSPM.owl");
@@ -37,7 +40,7 @@ public class ClassesNGTest {
     private final Set<OntClass> deprecatedFunctions;
     private final Set<OntClass> categories;
 
-    public ClassesNGTest()
+    public JenaClassesNGTest()
             throws
             java.io.IOException {
 
@@ -56,10 +59,10 @@ public class ClassesNGTest {
                 .collect(Collectors.toSet());
 
         categories = Arrays.asList(
-                "operative_specimen",
-                "surgical_material",
+                "medical_device",
+                // "surgical_furniture",
                 "surgical_instrument",
-                "medical_equipment").stream()
+                "surgical_material").stream()
                 .map(category -> model.getOntClass(NAMESPACE + category))
                 .collect(Collectors.toSet());
     }
@@ -69,13 +72,13 @@ public class ClassesNGTest {
 
         return model.listClasses().toList().stream()
                 .filter(x -> x.getNameSpace() != null
-                        && x.getProperty(OWL2.deprecated) == null
-                        && NAMESPACE.equals(x.getNameSpace()))
+                && x.getProperty(OWL2.deprecated) == null
+                && NAMESPACE.equals(x.getNameSpace()))
                 .map(x -> new OntClass[]{x})
                 .toArray(Object[][]::new);
     }
 
-    @Test(dataProvider = "getClasses", enabled = true)
+    @Test(dataProvider = "getClasses", enabled = false)
     public void testClassRDFSLabel(OntClass classe) {
 
         String label = classe.getLabel(null);
@@ -83,7 +86,7 @@ public class ClassesNGTest {
         assertNull(label, "label is set using 'rdfs:label' in " + classe.getLocalName());
     }
 
-    @Test(dataProvider = "getClasses", enabled = true)
+    @Test(dataProvider = "getClasses", enabled = false)
     public void testClassWithoutLabel(OntClass classe) {
 
         Statement statement = classe.getProperty(SKOS.prefLabel);
@@ -91,7 +94,7 @@ public class ClassesNGTest {
         assertNotNull(statement, "label of " + classe.getLocalName() + " is not defined with SKOS.");
     }
 
-    @Test(dataProvider = "getClasses", enabled = true)
+    @Test(dataProvider = "getClasses", enabled = false)
     public void testClassLabelWithUnderScore(OntClass classe) {
 
         boolean result = classe.listProperties(SKOS.prefLabel).toList().stream()
@@ -103,7 +106,7 @@ public class ClassesNGTest {
         assertFalse(result, "A label of class " + classe.getLocalName() + " contains underscores.");
     }
 
-    @Test(dataProvider = "getClasses", enabled = true)
+    @Test(dataProvider = "getClasses", enabled = false)
     public void testClassAllLabels(OntClass classe) {
 
         long count = classe.listProperties(SKOS.prefLabel).toList().size();
@@ -111,7 +114,7 @@ public class ClassesNGTest {
         assertEquals(count, 3, "labels in all languages are not set properly in " + classe.getLocalName());
     }
 
-    @Test(dataProvider = "getClasses", enabled = true)
+    @Test(dataProvider = "getClasses", enabled = false)
     public void testClassIRI(OntClass classe) {
 
         String iri = classe.getLocalName();
@@ -136,38 +139,37 @@ public class ClassesNGTest {
 
         return categories.stream()
                 .flatMap(category -> model.listClasses().toList().stream()
-                        .filter(instrument -> instrument.getNameSpace() != null
-                                && instrument.getProperty(OWL2.deprecated) == null
-                                && NAMESPACE.equals(instrument.getNameSpace())
-                                && instrument.hasSuperClass(category)))
+                .filter(c -> c.getNameSpace() != null
+                && NAMESPACE.equals(c.getNameSpace())
+                && c.getProperty(OWL2.deprecated) == null
+                && c.hasSuperClass(category)))
                 .map(x -> new OntClass[]{x})
                 .toArray(Object[][]::new);
     }
 
     @Test(dataProvider = "getSurgicalContinuant", enabled = true)
-    public void testInstrumentHasFunction(OntClass instrument) {
+    public void testInstrumentHasFunction(OntClass continuant) {
 
         long counter = 0;
-        if (instrument.getEquivalentClass() == null || !instrument.hasSubClass()) {
+        if (continuant.getEquivalentClass() == null || !continuant.hasSubClass()) {
 
-            counter = getCount(instrument.listSuperClasses(true).toList(), functions);
+            counter = getCount(continuant.listSuperClasses(true).toList(), functions);
         }
 
-        List<String> filteredConinuants = Arrays.asList("surgical_furniture", "medical_device");
-        if (categories.contains(instrument) || (filteredConinuants.contains(instrument.getLocalName()))) {
+        if (categories.contains(continuant)) {
 
             counter++;
         }
 
-        assertTrue(counter > 0, "'" + instrument.getLocalName() + "' has no function.");
+        assertTrue(counter > 0, "'" + continuant.getLocalName() + "' has no function.");
     }
 
-    @Test(dataProvider = "getSurgicalContinuant", enabled = true)
-    public void TestInstrumentsWithDeprecatedFunctions(OntClass instrument) {
+    @Test(dataProvider = "getSurgicalContinuant", enabled = false)
+    public void TestInstrumentsWithDeprecatedFunctions(OntClass continuant) {
 
-        long counter = getCount(instrument.listSuperClasses(true).toList(), deprecatedFunctions);
+        long counter = getCount(continuant.listSuperClasses(true).toList(), deprecatedFunctions);
 
-        assertFalse(counter > 0, "'" + instrument.getLocalName() + "' has deprecated function(s).");
+        assertFalse(counter > 0, "'" + continuant.getLocalName() + "' has deprecated function(s).");
     }
 
     private long getCount(List<OntClass> list, final Set<OntClass> functions) {
@@ -177,13 +179,45 @@ public class ClassesNGTest {
                 .map(OntClass::asRestriction)
                 .filter(r
                         -> r.isAllValuesFromRestriction()
-                        || r.isSomeValuesFromRestriction())
+                || r.isSomeValuesFromRestriction())
                 .map(r -> r.isAllValuesFromRestriction()
-                                ? r.asAllValuesFromRestriction().getAllValuesFrom()
-                                : r.asSomeValuesFromRestriction().getSomeValuesFrom())
+                ? r.asAllValuesFromRestriction().getAllValuesFrom()
+                : r.asSomeValuesFromRestriction().getSomeValuesFrom())
                 .filter(r -> !r.isAnon())
                 .map(r -> model.getOntClass(r.getURI()))
                 .filter(c -> functions.contains(c))
                 .count();
+    }
+
+    @Test(dataProvider = "getSurgicalContinuant", enabled = false)
+    public void testInstrumentHasFunctionRecursive(OntClass continuant) {
+
+        // if is final AND equivalent has to have a function
+        // if is final WITHOUT equivalent MAY NOT have a function 
+        //   (because has a superclass with it but if superclasses have not MUST have a function 'mechanical_instrument')
+        // if is NOT final MAY NOT have a function because it may have an equivalent
+        // if is NOT final MAY NOT have a function because it may have a subclass with a fuction
+        // if is final WITH equivalent and function (explicit or superclass) is a STRONG declaration (to remove ?)
+        long counter = 0;
+
+        assertTrue(counter > 0, "'" + continuant.getLocalName() + "' has no function.");
+    }
+
+    private static void println(OntClass instrument, Object object) {
+
+        System.out.println("***************************************");
+        if (object != null) {
+            System.out.println(instrument.getLocalName() + " " + object);
+        } else {
+            System.out.println(instrument.getLocalName());
+        }
+
+        instrument.listProperties().toList().stream()
+                .forEach(System.out::println);
+        System.out.println(".... ....");
+
+        instrument.listDeclaredProperties(false).toList().stream()
+                .forEach(System.out::println);
+        System.out.println("");
     }
 }
