@@ -1,21 +1,11 @@
 package fr.ltsi.medicis.ontospm;
 
+import static fr.ltsi.medicis.ontospm.OSCOntology.NAMESPACE;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import org.semanticweb.owlapi.apibinding.OWLManager;
-import org.semanticweb.owlapi.io.IRIDocumentSource;
-import org.semanticweb.owlapi.io.OWLOntologyDocumentSource;
 import org.semanticweb.owlapi.model.IRI;
-import org.semanticweb.owlapi.model.MissingImportHandlingStrategy;
 import org.semanticweb.owlapi.model.OWLClass;
-import org.semanticweb.owlapi.model.OWLAnnotationAssertionAxiom;
-import org.semanticweb.owlapi.model.OWLDataFactory;
-import org.semanticweb.owlapi.model.OWLLiteral;
-import org.semanticweb.owlapi.model.OWLOntology;
-import org.semanticweb.owlapi.model.OWLOntologyLoaderConfiguration;
-import org.semanticweb.owlapi.model.OWLOntologyManager;
 import org.semanticweb.owlapi.vocab.OWLRDFVocabulary;
-import org.semanticweb.owlapi.vocab.SKOSVocabulary;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -26,27 +16,15 @@ import org.testng.annotations.Test;
  */
 public class OWLAPIClassesNGTest {
 
-    private static final String NAMESPACE = "http://medicis.univ-rennes1.fr/ontologies/ontospm/OntoSPM.owl#";
     // FIX update path of local file !
     private static final Path PATH = Paths.get("/home/javier/workspace/ontospm/ontospm-ca/OntoSPM.owl");
 
-    private final OWLOntology ontology;
-    private final OWLDataFactory factory;
-    private final Util util;
+    private final OSCOntology ontology;
 
-    public OWLAPIClassesNGTest()
-            throws
-            org.semanticweb.owlapi.model.OWLOntologyCreationException {
+    public OWLAPIClassesNGTest() {
 
-        IRI iri = IRI.create(PATH.toFile());
-        OWLOntologyDocumentSource source = new IRIDocumentSource(iri);
-        OWLOntologyManager manager = OWLManager.createConcurrentOWLOntologyManager();
-        // ignore imports while loading
-        OWLOntologyLoaderConfiguration configuration = new OWLOntologyLoaderConfiguration();
-        configuration = configuration.setMissingImportHandlingStrategy(MissingImportHandlingStrategy.SILENT);
-        ontology = manager.loadOntologyFromOntologyDocument(source, configuration);
-        factory = manager.getOWLDataFactory();
-        util = Util.getInstance(ontology, factory);
+        OSCManager manager = OSCManager.getInstance(PATH);
+        ontology = OSCOntology.getInstance(manager.getOntology(), manager.getFactory());
     }
 
     /**
@@ -58,7 +36,7 @@ public class OWLAPIClassesNGTest {
     @DataProvider
     private Object[][] getAllClasses() {
 
-        return ontology.classesInSignature()               
+        return ontology.classes()
                 .filter(c -> c.getIRI().getNamespace() != null)
                 .map(x -> new OWLClass[]{x})
                 .toArray(Object[][]::new);
@@ -73,11 +51,11 @@ public class OWLAPIClassesNGTest {
     @DataProvider
     private Object[][] getClasses() {
 
-        return ontology.classesInSignature()
+        return ontology.classes()
                 .filter(c -> c.getIRI().getNamespace() != null
                 && NAMESPACE.equals(c.getIRI().getNamespace())
                 // filtering deprecated classes
-                && !util.contains(c, OWLRDFVocabulary.OWL_DEPRECATED))
+                && !ontology.hasAnnotation(c, OWLRDFVocabulary.OWL_DEPRECATED))
                 .map(x -> new OWLClass[]{x})
                 .toArray(Object[][]::new);
     }
@@ -93,21 +71,16 @@ public class OWLAPIClassesNGTest {
     @Test(dataProvider = "getClasses", enabled = true)
     public void testClassWithAllLabels(OWLClass classe) {
 
-        long result = util.annotations(classe, SKOSVocabulary.PREFLABEL).count();
+        long result = ontology.preferredLabels(classe).count();
 
         Assert.assertEquals(result, 3, classe.toStringID());
     }
 
     @Test(dataProvider = "getClasses", enabled = true)
-    public void testHasUnderscoresInPrefLabel(OWLClass classe) {
+    public void testHasUnderscoresInPreferredLabel(OWLClass classe) {
 
-        final IRI prefLabel = Util.getIRI(SKOSVocabulary.PREFLABEL);
-
-        boolean result = ontology.annotationAssertionAxioms(classe.getIRI())
-                .filter(p -> Util.compare(p.getProperty().getIRI(), prefLabel))
-                .map(OWLAnnotationAssertionAxiom::getAnnotation)
-                .filter(a -> a.getValue() instanceof OWLLiteral)
-                .map(an -> ((OWLLiteral) an.getValue()).getLiteral())
+        boolean result = ontology.preferredLabels(classe)
+                .map(literal -> literal.getLiteral())
                 .reduce(false,
                         (Boolean x, String y) -> x || y.contains("_"),
                         (Boolean x, Boolean y) -> x || y);
@@ -118,7 +91,7 @@ public class OWLAPIClassesNGTest {
     @Test(dataProvider = "getClasses", enabled = true)
     public void testHasRDFSLabel(OWLClass classe) {
 
-        boolean result = util.contains(classe, OWLRDFVocabulary.RDFS_LABEL);
+        boolean result = ontology.hasAnnotation(classe, OWLRDFVocabulary.RDFS_LABEL);
 
         Assert.assertFalse(result, "Label is set using 'rdfs:label' in " + classe.toStringID() + " .");
     }
@@ -126,8 +99,9 @@ public class OWLAPIClassesNGTest {
     @Test(dataProvider = "getClasses", enabled = true)
     public void testHasClassDefinition(OWLClass classe) {
 
+        // annotation <IAO:definition> 
         IRI definition = IRI.create("http://purl.obolibrary.org/obo/IAO_0000115");
-        boolean result = util.contains(classe, definition);
+        boolean result = ontology.hasAnnotation(classe, definition);
 
         Assert.assertTrue(result, "Class " + classe.toStringID() + " has no definition.");
     }
@@ -135,7 +109,7 @@ public class OWLAPIClassesNGTest {
     @Test(dataProvider = "getClasses", enabled = false)
     public void testIsDeprecatedClass(OWLClass classe) {
 
-        boolean result = util.contains(classe, OWLRDFVocabulary.OWL_DEPRECATED);
+        boolean result = ontology.hasAnnotation(classe, OWLRDFVocabulary.OWL_DEPRECATED);
 
         // TODO check if deprecated has the good annotations
         Assert.assertFalse(result, classe.toString());
@@ -145,8 +119,8 @@ public class OWLAPIClassesNGTest {
     public void testIRIClass(OWLClass classe) {
 
         String result = classe.getIRI().getShortForm();
-        String label = util.getSKOSPrefLabel(classe, "en");
-        String expected = Util.toNormalisedLocalName(label);
+        String label = ontology.getPrefLabel(classe, "en");
+        String expected = OSCUtil.toNormalisedSergmentPath(label);        
 
         Assert.assertEquals(result, expected, "IRI local name does not match with the English label.");
     }
@@ -154,7 +128,7 @@ public class OWLAPIClassesNGTest {
     @Test(dataProvider = "getClasses", enabled = true)
     public void testEnglishLabel(OWLClass classe) {
 
-        String result = util.getSKOSPrefLabel(classe, "en");
+        String result = ontology.getPrefLabel(classe, "en");
 
         Assert.assertNotNull(result, "Class " + classe.toStringID() + " has not an English label.");
     }
@@ -162,7 +136,7 @@ public class OWLAPIClassesNGTest {
     @Test(dataProvider = "getClasses", enabled = true)
     public void testFrenchLabel(OWLClass classe) {
 
-        String result = util.getSKOSPrefLabel(classe, "fr");
+        String result = ontology.getPrefLabel(classe, "fr");
 
         Assert.assertNotNull(result, "Class " + classe.toStringID() + " has not a French label.");
     }
@@ -170,7 +144,7 @@ public class OWLAPIClassesNGTest {
     @Test(dataProvider = "getClasses", enabled = true)
     public void testGermanLabel(OWLClass classe) {
 
-        String result = util.getSKOSPrefLabel(classe, "de");
+        String result = ontology.getPrefLabel(classe, "de");
 
         Assert.assertNotNull(result, "Class " + classe.toStringID() + " has not a German label.");
     }
