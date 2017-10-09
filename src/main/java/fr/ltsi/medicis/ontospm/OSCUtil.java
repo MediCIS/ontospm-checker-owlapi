@@ -23,7 +23,7 @@ public class OSCUtil {
      * @return a (OntoSPM) normalised string of last segment of an
      * {@link org.semanticweb.owlapi.model.IRI} path.
      */
-    public static String toNormalisedSergmentPath(final String string) {
+    public static String toNormalisedSegmentPath(final String string) {
 
         return string.replaceAll(" ", "_")
                 .replaceAll("'", "")

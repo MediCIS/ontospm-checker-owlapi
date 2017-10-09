@@ -16,13 +16,13 @@ import org.testng.annotations.Test;
  */
 public class OWLAPIClassesNGTest {
 
-    // FIX update path of local file !
-    private static final Path PATH = Paths.get("/home/javier/workspace/ontospm/ontospm-ca/OntoSPM.owl");
+    // FIX change path before testing !
+    private static final Path PATH = Paths.get("src/test/resources/OntoSPM.owl");
 
     private final OSCOntology ontology;
 
     public OWLAPIClassesNGTest() {
-
+                
         OSCManager manager = OSCManager.getInstance(PATH);
         ontology = OSCOntology.getInstance(manager.getOntology(), manager.getFactory());
     }
@@ -60,7 +60,7 @@ public class OWLAPIClassesNGTest {
                 .toArray(Object[][]::new);
     }
 
-    @Test(dataProvider = "getAllClasses", enabled = false)
+    @Test(dataProvider = "getAllClasses", enabled = true)
     public void testHasOntoSPMNamespace(OWLClass classe) {
 
         boolean result = !NAMESPACE.equals(classe.getIRI().getNamespace());
@@ -119,8 +119,8 @@ public class OWLAPIClassesNGTest {
     public void testIRIClass(OWLClass classe) {
 
         String result = classe.getIRI().getShortForm();
-        String label = ontology.getPrefLabel(classe, "en");
-        String expected = OSCUtil.toNormalisedSergmentPath(label);        
+        String label = ontology.getPreferredLabel(classe, "en");
+        String expected = OSCUtil.toNormalisedSegmentPath(label);
 
         Assert.assertEquals(result, expected, "IRI local name does not match with the English label.");
     }
@@ -128,7 +128,7 @@ public class OWLAPIClassesNGTest {
     @Test(dataProvider = "getClasses", enabled = true)
     public void testEnglishLabel(OWLClass classe) {
 
-        String result = ontology.getPrefLabel(classe, "en");
+        String result = ontology.getPreferredLabel(classe, "en");
 
         Assert.assertNotNull(result, "Class " + classe.toStringID() + " has not an English label.");
     }
@@ -136,7 +136,7 @@ public class OWLAPIClassesNGTest {
     @Test(dataProvider = "getClasses", enabled = true)
     public void testFrenchLabel(OWLClass classe) {
 
-        String result = ontology.getPrefLabel(classe, "fr");
+        String result = ontology.getPreferredLabel(classe, "fr");
 
         Assert.assertNotNull(result, "Class " + classe.toStringID() + " has not a French label.");
     }
@@ -144,7 +144,7 @@ public class OWLAPIClassesNGTest {
     @Test(dataProvider = "getClasses", enabled = true)
     public void testGermanLabel(OWLClass classe) {
 
-        String result = ontology.getPrefLabel(classe, "de");
+        String result = ontology.getPreferredLabel(classe, "de");
 
         Assert.assertNotNull(result, "Class " + classe.toStringID() + " has not a German label.");
     }

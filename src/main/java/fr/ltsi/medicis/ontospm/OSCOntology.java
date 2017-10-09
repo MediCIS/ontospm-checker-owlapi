@@ -41,17 +41,35 @@ public class OSCOntology {
         return ontology.classesInSignature();
     }
 
-    public Stream<OWLAnnotationAssertionAxiom> annotationAssertions(final OWLEntity entity) {
+    /**
+     * Get a stream of all annotation assertion axioms associated to an entity.
+     *
+     * @param entity {@link org.semanticweb.owlapi.model.OWLEntity}
+     * @return {@link java.util.stream.Stream} of
+     * {@link org.semanticweb.owlapi.model.OWLAnnotationAssertionAxiom}
+     */
+    private Stream<OWLAnnotationAssertionAxiom> annotationAssertions(final OWLEntity entity) {
 
         return ontology.annotationAssertionAxioms(entity.getIRI());
     }
 
-    public Stream<OWLAnnotationProperty> annotationProperties(final OWLEntity entity, final IRI iri) {
+    /**
+     * Get all annotation properties in a class containing a specific entity.
+     * @param entity
+     * @param iri
+     * @return 
+     */
+    private Stream<OWLAnnotationAssertionAxiom> filteredAnnotationAssertions(final OWLEntity entity, final IRI iri) {
 
         OWLEntity property = factory.getOWLAnnotationProperty(iri);
 
         return this.annotationAssertions(entity)
-                .filter(a -> a.containsEntityInSignature(property))
+                .filter(a -> a.containsEntityInSignature(property));
+    }
+
+    public Stream<OWLAnnotationProperty> annotationProperties(final OWLEntity entity, final IRI iri) {
+
+        return this.filteredAnnotationAssertions(entity, iri)
                 .map(OWLAnnotationAssertionAxiom::getProperty);
     }
 
@@ -62,10 +80,10 @@ public class OSCOntology {
 
     public <E extends Enum<E>> boolean hasAnnotation(final OWLEntity entity, final IRI iri) {
 
-        OWLEntity property = factory.getOWLAnnotationProperty(iri);
-
-        return this.annotationAssertions(entity)
-                .anyMatch(a -> a.containsEntityInSignature(property));
+//       OWLEntity property = factory.getOWLAnnotationProperty(iri);
+//        return this.annotationAssertions(entity)
+//                .anyMatch(a -> a.containsEntityInSignature(property));
+        return this.filteredAnnotationAssertions(entity, iri).count() != 0;
     }
 
     public <E extends Enum<E> & HasIRI> boolean hasAnnotation(final OWLEntity entity, final E enumeration) {
@@ -75,10 +93,7 @@ public class OSCOntology {
 
     public <E extends Enum<E> & HasIRI> Stream<OWLAnnotationValue> annotationValues(final OWLEntity entity, final IRI iri) {
 
-        OWLEntity property = factory.getOWLAnnotationProperty(iri);
-
-        return this.annotationAssertions(entity)
-                .filter(a -> a.containsEntityInSignature(property))
+        return this.filteredAnnotationAssertions(entity, iri)
                 .map(a -> a.getAnnotation().getValue());
     }
 
@@ -95,7 +110,7 @@ public class OSCOntology {
                 .map(OWLLiteral.class::cast);
     }
 
-    public String getPrefLabel(final OWLEntity entity, final String language) {
+    public String getPreferredLabel(final OWLEntity entity, final String language) {
 
         return this.preferredLabels(entity)
                 .filter(literal -> literal.hasLang(language))
